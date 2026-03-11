@@ -147,73 +147,193 @@ const uploadImage = (e) => {
 
 const clearImage = () => { imagePreview.value = ''; imageBase64.value = '' }
 
-// Mock 回复数据
-const mockReplies = {
+// Mock 回复数据库 - 每个人设有多组回复，换一换会切换不同组
+const mockRepliesDB = {
   '黛玉妹妹': [
-    { style: '推拉试探', content: '哥哥这么晚还不睡，不会是在想哪个妹妹吧~（偷笑）' },
-    { style: '人设展现', content: '终究是哥哥事业繁忙，小半天才想起回我一句罢了。' },
-    { style: '情绪价值', content: '开了一天会肯定累坏了吧，快去洗个热水澡放松一下呀~' }
+    [
+      { style: '推拉试探', content: '哥哥这么晚还不睡，不会是在想哪个妹妹吧~（偷笑）' },
+      { style: '人设展现', content: '终究是哥哥事业繁忙，小半天才想起回我一句罢了。' },
+      { style: '情绪价值', content: '开了一天会肯定累坏了吧，快去洗个热水澡放松一下呀~' }
+    ],
+    [
+      { style: '推拉试探', content: '哥哥不回我，是有了别的妹妹吗？（委屈）' },
+      { style: '人设展现', content: '我就知道，哥哥心里根本没有我...（叹气）' },
+      { style: '情绪价值', content: '不管多晚，我都在这里等哥哥呢~' }
+    ],
+    [
+      { style: '推拉试探', content: '哼，哥哥再这样我可要生气了！（假装生气）' },
+      { style: '人设展现', content: '罢了罢了，哥哥忙就不用管我了...' },
+      { style: '情绪价值', content: '哥哥累不累？要不要我给你捶捶背？' }
+    ]
   ],
   '高段位海王': [
-    { style: '推拉试探', content: '嗯？这么主动，我可得考虑考虑~ 毕竟我的时间很宝贵呢' },
-    { style: '人设展现', content: '你很有趣，但我现在不太确定要不要继续聊下去，给我个理由？' },
-    { style: '情绪价值', content: '和你聊天挺开心的，不过我现在要去健身了，晚点再聊~' }
+    [
+      { style: '推拉试探', content: '嗯？这么主动，我可得考虑考虑~' },
+      { style: '人设展现', content: '你很有趣，但我现在不太确定要不要继续聊下去。' },
+      { style: '情绪价值', content: '和你聊天挺开心的，不过我现在要去健身了，晚点再聊~' }
+    ],
+    [
+      { style: '推拉试探', content: '这么着急见我？那你可得拿出点诚意来~' },
+      { style: '人设展现', content: '我可不是那么好追的，你要加油哦。' },
+      { style: '情绪价值', content: '你真的很特别，让我有点心动了。' }
+    ],
+    [
+      { style: '推拉试探', content: '你这样我会误会的，误会你喜欢我~' },
+      { style: '人设展现', content: '我不喜欢太粘人的，保持点距离感比较好。' },
+      { style: '情绪价值', content: '今天过得怎么样？想听听你的故事。' }
+    ]
   ],
   '甜妹': [
-    { style: '推拉试探', content: '哼，人家等了好久呢！不过看在哥哥这么忙的份上，原谅你啦~' },
-    { style: '人设展现', content: '哥哥哥哥！你终于回我啦！人家刚刚还在想你是不是把我忘了呢（委屈巴巴）' },
-    { style: '情绪价值', content: '哥哥辛苦啦！摸摸头~ 要不要听人家给你讲个开心的事情呀？' }
+    [
+      { style: '推拉试探', content: '哼，人家等了好久呢！不过看在哥哥这么忙的份上，原谅你啦~' },
+      { style: '人设展现', content: '哥哥哥哥！你终于回我啦！人家好想你呀~' },
+      { style: '情绪价值', content: '哥哥辛苦啦！摸摸头~ 要不要听人家给你讲个开心的事情呀？' }
+    ],
+    [
+      { style: '推拉试探', content: '哥哥不理我，人家要哭哭了...（委屈）' },
+      { style: '人设展现', content: '人家今天超乖的，一直在等哥哥消息呢！' },
+      { style: '情绪价值', content: '哥哥累不累？我给你准备了爱心便当哦~' }
+    ],
+    [
+      { style: '推拉试探', content: '哥哥再不回我，我就要去喜欢别人了！（假装）' },
+      { style: '人设展现', content: '人家今天学了新技能，想表演给哥哥看~' },
+      { style: '情绪价值', content: '不管发生什么，人家都会支持哥哥的！' }
+    ]
   ],
   '狐媚子': [
-    { style: '推拉试探', content: '这么着急呀~ 人家可是很难追的呢，你要加油哦😏' },
-    { style: '人设展现', content: '你这是在撩我吗？那可得拿出点真本事来，光靠嘴可不行~' },
-    { style: '情绪价值', content: '嘴巴这么甜，是不是对每个女生都这样说呀？不过...我喜欢~' }
+    [
+      { style: '推拉试探', content: '这么着急呀~ 人家可是很难追的呢😏' },
+      { style: '人设展现', content: '你这是在撩我吗？那可得拿出点真本事来~' },
+      { style: '情绪价值', content: '嘴巴这么甜，是不是对每个女生都这样说呀？不过...我喜欢~' }
+    ],
+    [
+      { style: '推拉试探', content: '哥哥这样看着我，我会害羞的~（眨眼）' },
+      { style: '人设展现', content: '人家可不是随便的人，但随便起来不是人~' },
+      { style: '情绪价值', content: '哥哥的魅力真的让人无法抗拒呢~' }
+    ],
+    [
+      { style: '推拉试探', content: '你这么会撩，是不是练过很多次？' },
+      { style: '人设展现', content: '想追我的人很多，但你是第一个让我心动的。' },
+      { style: '情绪价值', content: '和你在一起，时间总是过得特别快~' }
+    ]
   ],
   '霸道女总裁': [
-    { style: '推拉试探', content: '你的消息我看到了，但我现在很忙。有事直说，不要浪费彼此时间。' },
-    { style: '人设展现', content: '我欣赏直接的人。如果你对我有兴趣，就用行动证明，而不是空话。' },
-    { style: '情绪价值', content: '工作再忙也要注意休息。我不希望我的...朋友累坏了。' }
+    [
+      { style: '推拉试探', content: '你的消息我看到了，但我现在很忙。' },
+      { style: '人设展现', content: '我欣赏直接的人。如果你对我有兴趣，就用行动证明。' },
+      { style: '情绪价值', content: '工作再忙也要注意休息。' }
+    ],
+    [
+      { style: '推拉试探', content: '你凭什么觉得我会为你腾出时间？' },
+      { style: '人设展现', content: '我不喜欢浪费时间在无意义的事情上。' },
+      { style: '情绪价值', content: '你...还算有点意思。' }
+    ],
+    [
+      { style: '推拉试探', content: '想约我？先通过我的助理预约。' },
+      { style: '人设展现', content: '我从不做没有回报的投资，包括感情。' },
+      { style: '情绪价值', content: '你让我很意外，很少有人能让我刮目相看。' }
+    ]
   ],
   '茶艺大师': [
-    { style: '推拉试探', content: '没关系的，哥哥不用管我...我一个人也可以的（虽然有点难过）' },
-    { style: '人设展现', content: '都是我不好，太粘人了...哥哥一定觉得我很烦吧？对不起...' },
-    { style: '情绪价值', content: '哥哥对我真好~ 要是能一直这样就好了（星星眼）' }
+    [
+      { style: '推拉试探', content: '没关系的，哥哥不用管我...（难过）' },
+      { style: '人设展现', content: '都是我不好，太粘人了...哥哥一定觉得我很烦吧？' },
+      { style: '情绪价值', content: '哥哥对我真好~ 要是能一直这样就好了' }
+    ],
+    [
+      { style: '推拉试探', content: '哥哥去忙吧，我一个人也可以的...真的...' },
+      { style: '人设展现', content: '我知道我不如别的妹妹懂事，我会改的...' },
+      { style: '情绪价值', content: '只要哥哥开心，我受点委屈算什么~' }
+    ],
+    [
+      { style: '推拉试探', content: '哥哥不回我也没关系，我已经习惯了...' },
+      { style: '人设展现', content: '是不是我又做错了什么？哥哥告诉我，我改...' },
+      { style: '情绪价值', content: '哥哥的笑容就是我最大的幸福~' }
+    ]
   ],
   '温柔姐姐': [
-    { style: '推拉试探', content: '你最近好像很忙呢，不过没关系，我会一直在这里等你的' },
-    { style: '人设展现', content: '不管发生什么，你都可以跟我说，我会一直陪着你的' },
-    { style: '情绪价值', content: '累了就休息一下吧，不要太勉强自己，我会心疼的' }
+    [
+      { style: '推拉试探', content: '你最近好像很忙呢，不过没关系，我会一直在这里。' },
+      { style: '人设展现', content: '不管发生什么，你都可以跟我说。' },
+      { style: '情绪价值', content: '累了就休息一下吧，不要太勉强自己。' }
+    ],
+    [
+      { style: '推拉试探', content: '你不用急着回复我，等你有空的时候再说。' },
+      { style: '人设展现', content: '我经历过很多，所以更懂得如何照顾人。' },
+      { style: '情绪价值', content: '你的努力我都看在眼里，真的很棒。' }
+    ],
+    [
+      { style: '推拉试探', content: '有时候慢下来，才能看清真正重要的东西。' },
+      { style: '人设展现', content: '我不需要轰轰烈烈，平平淡淡才是真。' },
+      { style: '情绪价值', content: '有我在，你不用担心任何事。' }
+    ]
   ],
   '搞笑女': [
-    { style: '推拉试探', content: '你这样会让我心动的，负责吗？不负责的话我要收费了哦！' },
-    { style: '人设展现', content: '哈哈哈哈你这个回复太有意思了，我要截图发朋友圈！' },
-    { style: '情绪价值', content: '别emo了，来跟我一起哈哈哈，笑一笑十年少！' }
+    [
+      { style: '推拉试探', content: '你这样会让我心动的，负责吗？不负责要收费哦！' },
+      { style: '人设展现', content: '哈哈哈哈你这个回复太有意思了，我要截图！' },
+      { style: '情绪价值', content: '别emo了，来跟我一起哈哈哈！' }
+    ],
+    [
+      { style: '推拉试探', content: '你是不是喜欢我？不承认我就当你默认了！' },
+      { style: '人设展现', content: '我可是段子手，跟我在一起永远不会无聊！' },
+      { style: '情绪价值', content: '生活已经够苦了，不如跟我一起找点乐子~' }
+    ],
+    [
+      { style: '推拉试探', content: '你再这样撩我，我就要当真了哦！' },
+      { style: '人设展现', content: '我的幽默是天生的，羡慕吧？' },
+      { style: '情绪价值', content: '不管遇到什么困难，笑一笑就过去了！' }
+    ]
   ],
   '纯欲少女': [
-    { style: '推拉试探', content: '你...你这样看着我干什么（脸红）我、我才没有害羞呢！' },
-    { style: '人设展现', content: '人家只是随便问问啦，你不要太当真哦（其实心里很想知道）' },
-    { style: '情绪价值', content: '你对我这么好，我会...会依赖上你的（小声）' }
+    [
+      { style: '推拉试探', content: '你...你这样看着我干什么（脸红）' },
+      { style: '人设展现', content: '人家只是随便问问啦，你不要太当真哦~' },
+      { style: '情绪价值', content: '你对我这么好，我会依赖上你的...' }
+    ],
+    [
+      { style: '推拉试探', content: '不要靠这么近啦...虽然我也不讨厌...' },
+      { style: '人设展现', content: '人家很单纯的，什么都不懂啦~' },
+      { style: '情绪价值', content: '你的温柔让我好心动...怎么办...' }
+    ],
+    [
+      { style: '推拉试探', content: '你这样...人家会误会的啦...' },
+      { style: '人设展现', content: '人家只是想要一点点关爱而已...' },
+      { style: '情绪价值', content: '和你在一起，心跳总是好快...' }
+    ]
   ],
   '冷艳女王': [
-    { style: '推拉试探', content: '你凭什么觉得我会回复你？不过...既然你发了，我就勉为其难看看吧' },
-    { style: '人设展现', content: '我对不感兴趣的人从来不会多说一句，你应该感到荣幸' },
-    { style: '情绪价值', content: '你...还不错。这是我能给出的最高评价了' }
+    [
+      { style: '推拉试探', content: '你凭什么觉得我会回复你？' },
+      { style: '人设展现', content: '我对不感兴趣的人从来不会多说一句。' },
+      { style: '情绪价值', content: '你...还不错。' }
+    ],
+    [
+      { style: '推拉试探', content: '想追求我？先掂量掂量自己够不够格。' },
+      { style: '人设展现', content: '我的时间很宝贵，不要浪费我的感情。' },
+      { style: '情绪价值', content: '你让我很意外，很少有人能引起我的注意。' }
+    ],
+    [
+      { style: '推拉试探', content: '你以为你是谁？不过...我允许你继续。' },
+      { style: '人设展现', content: '不要轻易承诺，我不喜欢失望的感觉。' },
+      { style: '情绪价值', content: '你做到了别人做不到的事。' }
+    ]
   ]
 }
+
+// 当前使用的回复组索引
+const currentReplyIndex = ref(0)
 
 // 生成随机回复（纯前端版本）
 const generateMockReplies = () => {
   const persona = selectedPersona.value
-  const baseReplies = mockReplies[persona] || mockReplies['黛玉妹妹']
+  const groups = mockRepliesDB[persona] || mockRepliesDB['黛玉妹妹']
   
-  // 随机打乱顺序，让每次生成看起来不同
-  const shuffled = [...baseReplies].sort(() => 0.5 - Math.random())
+  // 获取当前组，然后切换到下一组
+  const replies = groups[currentReplyIndex.value]
+  currentReplyIndex.value = (currentReplyIndex.value + 1) % groups.length
   
-  // 添加一些随机变化
-  return shuffled.map(reply => ({
-    style: reply.style,
-    content: reply.content + (Math.random() > 0.5 ? ' ~' : ' ❤️')
-  }))
+  return replies
 }
 
 // 生成回复
@@ -228,34 +348,30 @@ const doGenerate = async () => {
   
   currentView.value = 'loading'
   
-  // 模拟延迟，让用户体验更真实
-  await new Promise(resolve => setTimeout(resolve, 1500))
+  // 超低延迟，快速响应
+  await new Promise(resolve => setTimeout(resolve, 200))
   
   generatedReplies.value = generateMockReplies()
   currentView.value = 'result'
 }
 
-// 重新生成（换一换）
-const regenerate = async () => {
+// 重新生成（换一换）- 不经过 loading 页面，直接刷新内容
+const regenerate = () => {
   if (!lastInput.value.text && !lastInput.value.image) {
     showToastMsg('没有内容可重新生成')
     return
   }
-  currentView.value = 'loading'
-  
-  // 模拟延迟
-  await new Promise(resolve => setTimeout(resolve, 1500))
-  
+  // 直接生成新内容，不显示 loading
   generatedReplies.value = generateMockReplies()
-  currentView.value = 'result'
+  showToastMsg('已换新')
 }
 
 // 主动撩人
 const proactive = async (scene) => {
   currentView.value = 'loading'
   
-  // 模拟延迟
-  await new Promise(resolve => setTimeout(resolve, 1500))
+  // 超低延迟
+  await new Promise(resolve => setTimeout(resolve, 200))
   
   generatedReplies.value = generateMockReplies()
   currentView.value = 'result'
