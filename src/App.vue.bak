@@ -1,0 +1,597 @@
+<script setup>
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
+
+const API_URL = 'http://localhost:8000'
+
+// 人设数据 - 可手动添加
+const defaultPersonas = [
+  { key: '黛玉妹妹', name: '黛玉妹妹', emoji: '🌸', desc: '娇嗔幽怨，以退为进' },
+  { key: '高段位海王', name: '高段位海王', emoji: '🌊', desc: '推拉掌控，游刃有余' },
+  { key: '狐媚子', name: '狐媚子', emoji: '🦊', desc: '妩媚撩人，风情万种' },
+  { key: '甜妹', name: '甜妹', emoji: '🎀', desc: '软糯可爱，撒娇卖萌' },
+  { key: '霸道女总裁', name: '霸道女总裁', emoji: '👑', desc: '强势掌控，雷厉风行' },
+  { key: '茶艺大师', name: '茶艺大师', emoji: '🍵', desc: '楚楚可怜，以退为进' },
+  { key: '温柔姐姐', name: '温柔姐姐', emoji: '🌙', desc: '知性优雅，温暖治愈' },
+  { key: '搞笑女', name: '搞笑女', emoji: '😆', desc: '幽默风趣，活泼可爱' },
+  { key: '纯欲少女', name: '纯欲少女', emoji: '🌹', desc: '清纯性感，欲拒还迎' },
+  { key: '冷艳女王', name: '冷艳女王', emoji: '❄️', desc: '高冷神秘，难以接近' },
+]
+
+// 场景标签 - 更丰富
+const scenes = [
+  // 基础场景
+  { key: '日常聊天', name: '💬 日常聊天', category: '基础' },
+  { key: '开场白', name: '👋 开场白', category: '基础' },
+  { key: '搭讪', name: '🎯 搭讪', category: '基础' },
+  // 互动场景
+  { key: '调侃', name: '😏 调侃', category: '互动' },
+  { key: '怼一下', name: '💢 怼一下', category: '互动' },
+  { key: '撒娇', name: '🥺 撒娇', category: '互动' },
+  { key: '安慰鼓励', name: '🤗 安慰鼓励', category: '互动' },
+  // 进阶场景
+  { key: '午夜微醺', name: '🍷 午夜微醺', category: '进阶' },
+  { key: '暗示要礼物', name: '🎁 暗示要礼物', category: '进阶' },
+  { key: '婉拒见面', name: '🛑 婉拒见面', category: '进阶' },
+  { key: '引导视频', name: '🎥 引导视频', category: '进阶' },
+]
+
+// 状态
+const currentView = ref('input') // input | loading | result | favorites | addPersona
+const personas = ref([...defaultPersonas])
+const selectedPersona = ref('黛玉妹妹')
+const selectedScene = ref('')
+const inputText = ref('')
+const inputMode = ref('text') // text | image
+const imagePreview = ref('')
+const imageBase64 = ref('')
+const generatedReplies = ref([])
+const favorites = ref([])
+const dailyPickup = ref('')
+const showDailyPickup = ref(false)
+
+// 添加人设表单
+const newPersona = ref({ name: '', emoji: '', desc: '' })
+
+// Toast
+const toastMsg = ref('')
+const showToast = ref(false)
+const showToastMsg = (msg) => {
+  toastMsg.value = msg
+  showToast.value = true
+  setTimeout(() => showToast.value = false, 2000)
+}
+
+// 加载收藏和本地人设
+onMounted(() => {
+  const savedFav = localStorage.getItem('dating-master-favorites')
+  if (savedFav) favorites.value = JSON.parse(savedFav)
+  
+  const savedPersonas = localStorage.getItem('dating-master-personas')
+  if (savedPersonas) personas.value = JSON.parse(savedPersonas)
+  
+  // 每日土味情话
+  generateDailyPickup()
+})
+
+// 保存人设
+const savePersonas = () => {
+  localStorage.setItem('dating-master-personas', JSON.stringify(personas.value))
+}
+
+// 添加人设
+const addPersona = () => {
+  if (!newPersona.value.name || !newPersona.value.emoji) {
+    showToastMsg('请填写完整信息')
+    return
+  }
+  const key = 'custom_' + Date.now()
+  personas.value.push({
+    key,
+    name: newPersona.value.name,
+    emoji: newPersona.value.emoji,
+    desc: newPersona.value.desc || '自定义人设'
+  })
+  savePersonas()
+  newPersona.value = { name: '', emoji: '', desc: '' }
+  currentView.value = 'input'
+  showToastMsg('人设添加成功')
+}
+
+// 删除人设
+const removePersona = (index) => {
+  if (personas.value[index].key.startsWith('custom_')) {
+    personas.value.splice(index, 1)
+    savePersonas()
+    showToastMsg('已删除')
+  }
+}
+
+// 保存收藏
+const saveFavorites = () => {
+  localStorage.setItem('dating-master-favorites', JSON.stringify(favorites.value))
+}
+
+// 添加收藏
+const addToFavorites = (content, type) => {
+  if (favorites.value.some(f => f.content === content)) {
+    showToastMsg('已在收藏中')
+    return
+  }
+  favorites.value.unshift({
+    content,
+    type,
+    persona: selectedPersona.value,
+    timestamp: Date.now()
+  })
+  saveFavorites()
+  showToastMsg('已收藏')
+}
+
+// 复制
+const copyToClipboard = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    showToastMsg('已复制')
+  } catch {
+    showToastMsg('复制失败')
+  }
+}
+
+// 处理图片上传
+const handleImageUpload = (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const maxWidth = 800
+      let width = img.width, height = img.height
+      if (width > maxWidth) { height = (height * maxWidth) / width; width = maxWidth }
+      canvas.width = width; canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      const base64 = canvas.toDataURL('image/jpeg', 0.8)
+      imageBase64.value = base64.split(',')[1]
+      imagePreview.value = base64
+      showToastMsg('图片已上传')
+    }
+    img.src = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
+// 清除图片
+const clearImage = () => {
+  imagePreview.value = ''
+  imageBase64.value = ''
+  inputMode.value = 'text'
+}
+
+// 选择场景
+const selectScene = (key) => {
+  selectedScene.value = selectedScene.value === key ? '' : key
+}
+
+// 生成每日土味情话
+const generateDailyPickup = () => {
+  const pickuplines = [
+    '你知道我的缺点是什么吗？是缺点你。',
+    '最近有点忙，忙着喜欢你。',
+    '被你赞过的朋友圈，叫甜甜圈。',
+    '我怀疑你的本质是一本书，不然为什么让我越看越想睡。',
+    '你今天特别讨厌，讨人喜欢和百看不厌。',
+    '我觉得你接近我就是害我，害得我好喜欢你。',
+    '你知道你和星星有什么区别吗？星星在天上，你在我心里。',
+    '我想去个地方，什么地方？去你心里。',
+  ]
+  dailyPickup.value = pickuplines[Math.floor(Math.random() * pickuplines.length)]
+}
+
+// 生成回复
+const generateReply = async () => {
+  if (!inputText.value.trim() && !imageBase64.value) {
+    showToastMsg('请先输入消息或上传图片')
+    return
+  }
+  
+  currentView.value = 'loading'
+  
+  try {
+    let response
+    const scene = selectedScene.value || undefined
+    
+    if (imageBase64.value) {
+      response = await axios.post(`${API_URL}/api/generate/image`, {
+        persona: selectedPersona.value,
+        scene,
+        context: '',
+        image_base64: imageBase64.value
+      })
+    } else {
+      response = await axios.post(`${API_URL}/api/generate/text`, {
+        persona: selectedPersona.value,
+        scene,
+        context: '',
+        target_message: inputText.value
+      })
+    }
+    
+    generatedReplies.value = response.data.replies
+    currentView.value = 'result'
+  } catch (error) {
+    showToastMsg('生成失败，请重试')
+    currentView.value = 'input'
+  }
+}
+
+// 重新生成
+const regenerate = () => {
+  generateReply()
+}
+
+// 返回
+const backToInput = () => {
+  currentView.value = 'input'
+  inputText.value = ''
+  selectedScene.value = ''
+  clearImage()
+}
+</script>
+
+<template>
+  <div class="app">
+    <div v-if="showToast" class="toast">{{ toastMsg }}</div>
+    
+    <!-- ========== 输入页面 ========== -->
+    <div v-if="currentView === 'input'" class="page input-page">
+      <!-- 顶部 -->
+      <header class="header-pink">
+        <div class="header-top">
+          <button class="menu-btn">☰</button>
+          <h1 class="title">💕 恋爱大师</h1>
+          <button class="fav-btn" @click="currentView = 'favorites'">
+            ⭐ {{ favorites.length }}
+          </button>
+        </div>
+      </header>
+      
+      <main class="main-content">
+        <!-- 人设选择 - 滑条形式 -->
+        <div class="persona-section">
+          <div class="section-header">
+            <span class="section-label">选择人设</span>
+            <button class="add-btn" @click="currentView = 'addPersona'">+ 添加</button>
+          </div>
+          <div class="persona-slider">
+            <div class="slider-track">
+              <div 
+                v-for="(p, index) in personas" 
+                :key="p.key"
+                class="persona-card"
+                :class="{ active: selectedPersona === p.key }"
+                @click="selectedPersona = p.key"
+              >
+                <span class="emoji">{{ p.emoji }}</span>
+                <span class="name">{{ p.name }}</span>
+                <span class="desc">{{ p.desc }}</span>
+                <button v-if="p.key.startsWith('custom_')" class="del-btn" @click.stop="removePersona(index)">×</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 输入区域 - 支持文本/图片 -->
+        <div class="input-section">
+          <div class="input-tabs">
+            <button :class="{ active: inputMode === 'text' }" @click="inputMode = 'text'">📝 文字</button>
+            <button :class="{ active: inputMode === 'image' }" @click="inputMode = 'image'">🖼️ 截图</button>
+          </div>
+          
+          <!-- 文字输入 -->
+          <div v-if="inputMode === 'text'" class="text-input">
+            <textarea 
+              v-model="inputText"
+              placeholder="将哥哥的话粘贴到这里..."
+              rows="4"
+            ></textarea>
+          </div>
+          
+          <!-- 图片输入 -->
+          <div v-else class="image-input">
+            <div v-if="imagePreview" class="preview-box">
+              <img :src="imagePreview">
+              <button class="clear-btn" @click="clearImage">×</button>
+            </div>
+            <label v-else class="upload-area">
+              <input type="file" accept="image/*" style="display: none" @change="handleImageUpload">
+              <span class="icon">📷</span>
+              <span class="text">点击上传聊天截图</span>
+              <span class="sub">AI将自动识别对话内容</span>
+            </label>
+          </div>
+        </div>
+        
+        <!-- 场景选择 - 更丰富 -->
+        <div class="scene-section">
+          <div class="section-header">
+            <span class="section-label">选择场景</span>
+            <span class="optional">（可选）</span>
+          </div>
+          <div class="scene-categories">
+            <div class="category">
+              <span class="cat-label">基础</span>
+              <div class="scene-tags">
+                <button 
+                  v-for="s in scenes.filter(x => x.category === '基础')" 
+                  :key="s.key"
+                  :class="{ active: selectedScene === s.key }"
+                  @click="selectScene(s.key)"
+                >{{ s.name }}</button>
+              </div>
+            </div>
+            <div class="category">
+              <span class="cat-label">互动</span>
+              <div class="scene-tags">
+                <button 
+                  v-for="s in scenes.filter(x => x.category === '互动')" 
+                  :key="s.key"
+                  :class="{ active: selectedScene === s.key }"
+                  @click="selectScene(s.key)"
+                >{{ s.name }}</button>
+              </div>
+            </div>
+            <div class="category">
+              <span class="cat-label">进阶</span>
+              <div class="scene-tags">
+                <button 
+                  v-for="s in scenes.filter(x => x.category === '进阶')" 
+                  :key="s.key"
+                  :class="{ active: selectedScene === s.key }"
+                  @click="selectScene(s.key)"
+                >{{ s.name }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 每日土味情话 -->
+        <div class="daily-pickup" @click="showDailyPickup = !showDailyPickup">
+          <div class="pickup-header">
+            <span>🌽 每日土味情话</span>
+            <span class="arrow">{{ showDailyPickup ? '▼' : '▶' }}</span>
+          </div>
+          <div v-if="showDailyPickup" class="pickup-content">
+            <p>{{ dailyPickup }}</p>
+            <button @click.stop="copyToClipboard(dailyPickup)">📋 复制</button>
+          </div>
+        </div>
+        
+        <!-- 生成按钮 -->
+        <button 
+          class="generate-btn"
+          :disabled="!inputText.trim() && !imageBase64"
+          @click="generateReply"
+        >
+          <span class="shine">✨</span>
+          <span class="text">生成高情商回复</span>
+          <span class="shine">✨</span>
+        </button>
+      </main>
+    </div>
+    
+    <!-- ========== 添加人设页面 ========== -->
+    <div v-else-if="currentView === 'addPersona'" class="page">
+      <header class="header-simple">
+        <button class="back-btn" @click="currentView = 'input'">← 返回</button>
+        <h2 class="page-title">添加自定义人设</h2>
+        <span></span>
+      </header>
+      <div class="form-content">
+        <div class="form-item">
+          <label>人设名称</label>
+          <input v-model="newPersona.name" placeholder="例如：高冷御姐">
+        </div>
+        <div class="form-item">
+          <label>Emoji图标</label>
+          <input v-model="newPersona.emoji" placeholder="例如：🌹">
+        </div>
+        <div class="form-item">
+          <label>人设描述</label>
+          <textarea v-model="newPersona.desc" placeholder="描述这个人设的特点..." rows="3"></textarea>
+        </div>
+        <button class="submit-btn" @click="addPersona">✅ 确认添加</button>
+      </div>
+    </div>
+    
+    <!-- ========== 加载页面 ========== -->
+    <div v-else-if="currentView === 'loading'" class="page loading-page">
+      <div class="loading-content">
+        <div class="spinner-large"></div>
+        <p class="loading-text">AI正在生成高情商回复...</p>
+        <p class="loading-sub">以【{{ selectedPersona }}】的口吻</p>
+      </div>
+    </div>
+    
+    <!-- ========== 结果页面 ========== -->
+    <div v-else-if="currentView === 'result'" class="page result-page">
+      <header class="header-simple">
+        <button class="back-btn" @click="backToInput">← 返回</button>
+        <h2 class="page-title">为您生成的高情商回复</h2>
+        <button class="regen-btn" @click="regenerate">🔄 换一换</button>
+      </header>
+      
+      <main class="replies-container">
+        <div v-for="(reply, index) in generatedReplies" :key="index" class="reply-card">
+          <div class="card-header">
+            <span class="style-icon">
+              <span v-if="index === 0">🔮</span>
+              <span v-else-if="index === 1">🎭</span>
+              <span v-else>💖</span>
+            </span>
+            <span class="style-name">{{ reply.style || reply.type }}</span>
+          </div>
+          <div class="card-content">{{ reply.content }}</div>
+          <div class="card-actions">
+            <button class="btn-copy-large" @click="copyToClipboard(reply.content)">📋 复制使用</button>
+            <button class="btn-fav-small" @click="addToFavorites(reply.content, reply.style || reply.type)">⭐</button>
+          </div>
+        </div>
+      </main>
+    </div>
+    
+    <!-- ========== 收藏页面 ========== -->
+    <div v-else-if="currentView === 'favorites'" class="page">
+      <header class="header-simple">
+        <button class="back-btn" @click="currentView = 'input'">← 返回</button>
+        <h2 class="page-title">我的语料库 ({{ favorites.length }})</h2>
+        <span></span>
+      </header>
+      <main class="favorites-content">
+        <div v-if="favorites.length === 0" class="empty-state">
+          <div class="empty-icon">📚</div>
+          <p>还没有收藏的话术</p>
+          <p class="sub">生成回复后点击 ⭐ 收藏</p>
+        </div>
+        <div v-else class="fav-list">
+          <div v-for="(item, idx) in favorites" :key="idx" class="fav-card">
+            <div class="fav-meta">
+              <span class="fav-type">{{ item.type }}</span>
+              <span class="fav-persona">{{ item.persona }}</span>
+            </div>
+            <div class="fav-text">{{ item.content }}</div>
+            <div class="fav-actions">
+              <button class="btn-use" @click="copyToClipboard(item.content)">📋 复制使用</button>
+              <button class="btn-delete" @click="favorites.splice(idx, 1); saveFavorites()">🗑️</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</template>
+
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { max-width: 480px; margin: 0 auto; background: #1a1a1a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.app { min-height: 100vh; background: #1a1a1a; }
+.page { min-height: 100vh; }
+
+.toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); color: #fff; padding: 12px 24px; border-radius: 8px; z-index: 9999; font-size: 14px; }
+
+/* Header */
+.header-pink { background: linear-gradient(135deg, #ff6b9d 0%, #e85d8a 100%); padding: 16px; }
+.header-top { display: flex; justify-content: space-between; align-items: center; }
+.menu-btn { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; }
+.title { font-size: 20px; font-weight: bold; color: #fff; }
+.fav-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 8px 14px; border-radius: 20px; font-size: 14px; cursor: pointer; }
+
+.header-simple { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #333; }
+.back-btn { background: none; border: none; color: #ff6b9d; font-size: 14px; cursor: pointer; }
+.page-title { font-size: 16px; font-weight: bold; color: #fff; }
+
+/* Main Content */
+.main-content { padding: 16px; }
+
+/* Section Header */
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.section-label { font-size: 14px; color: #fff; font-weight: 500; }
+.optional { font-size: 12px; color: #888; }
+.add-btn { background: rgba(255,107,157,0.2); border: none; color: #ff6b9d; padding: 6px 12px; border-radius: 12px; font-size: 12px; cursor: pointer; }
+
+/* Persona Slider */
+.persona-section { margin-bottom: 20px; }
+.persona-slider { overflow-x: auto; scrollbar-width: none; }
+.persona-slider::-webkit-scrollbar { display: none; }
+.slider-track { display: flex; gap: 12px; padding-bottom: 4px; }
+.persona-card { flex-shrink: 0; width: 100px; padding: 16px 12px; background: #2a2a2a; border: 2px solid transparent; border-radius: 16px; text-align: center; cursor: pointer; position: relative; }
+.persona-card.active { border-color: #ff6b9d; background: rgba(255,107,157,0.1); }
+.persona-card .emoji { font-size: 32px; display: block; margin-bottom: 8px; }
+.persona-card .name { font-size: 13px; font-weight: bold; color: #fff; display: block; margin-bottom: 4px; }
+.persona-card .desc { font-size: 10px; color: #888; display: block; }
+.persona-card .del-btn { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; background: rgba(255,0,0,0.3); border: none; border-radius: 50%; color: #fff; font-size: 12px; cursor: pointer; }
+
+/* Input Section */
+.input-section { margin-bottom: 20px; }
+.input-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.input-tabs button { flex: 1; padding: 12px; background: #2a2a2a; border: 1px solid #333; border-radius: 10px; color: #888; font-size: 14px; cursor: pointer; }
+.input-tabs button.active { background: #ff6b9d; border-color: #ff6b9d; color: #fff; }
+
+.text-input textarea { width: 100%; padding: 16px; background: #2a2a2a; border: 1px solid #333; border-radius: 12px; color: #fff; font-size: 15px; line-height: 1.6; resize: none; outline: none; }
+.text-input textarea::placeholder { color: #666; }
+
+.image-input .upload-area { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 20px; background: #2a2a2a; border: 2px dashed #444; border-radius: 12px; cursor: pointer; }
+.image-input .upload-area .icon { font-size: 32px; }
+.image-input .upload-area .text { font-size: 14px; color: #fff; }
+.image-input .upload-area .sub { font-size: 12px; color: #666; }
+.preview-box { position: relative; border-radius: 12px; overflow: hidden; }
+.preview-box img { width: 100%; max-height: 200px; object-fit: cover; }
+.preview-box .clear-btn { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; background: rgba(0,0,0,0.7); border: none; border-radius: 50%; color: #fff; font-size: 16px; cursor: pointer; }
+
+/* Scene Section */
+.scene-section { margin-bottom: 20px; }
+.scene-categories { display: flex; flex-direction: column; gap: 12px; }
+.category { display: flex; align-items: center; gap: 10px; }
+.cat-label { width: 40px; font-size: 12px; color: #888; flex-shrink: 0; }
+.scene-tags { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.scene-tags button { padding: 8px 14px; background: #2a2a2a; border: 1px solid #333; border-radius: 16px; color: #ccc; font-size: 12px; cursor: pointer; }
+.scene-tags button.active { background: #ff6b9d; border-color: #ff6b9d; color: #fff; }
+
+/* Daily Pickup */
+.daily-pickup { background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,180,0,0.1)); border: 1px solid rgba(255,215,0,0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; cursor: pointer; }
+.pickup-header { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #ffd700; }
+.pickup-content { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,215,0,0.2); }
+.pickup-content p { font-size: 14px; color: #fff; line-height: 1.6; margin-bottom: 12px; }
+.pickup-content button { padding: 8px 16px; background: rgba(255,215,0,0.2); border: none; border-radius: 8px; color: #ffd700; font-size: 13px; cursor: pointer; }
+
+/* Generate Button */
+.generate-btn { width: 100%; padding: 18px; background: linear-gradient(90deg, #ff6b9d, #e85d8a); border: none; border-radius: 12px; color: #fff; font-size: 17px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 20px rgba(255,107,157,0.4); }
+.generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.shine { animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* Loading Page */
+.loading-page { display: flex; align-items: center; justify-content: center; }
+.loading-content { text-align: center; }
+.spinner-large { width: 60px; height: 60px; border: 4px solid #333; border-top-color: #ff6b9d; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+.loading-text { font-size: 16px; color: #fff; margin-bottom: 8px; }
+.loading-sub { font-size: 14px; color: #888; }
+
+/* Result Page */
+.result-page { padding-bottom: 20px; }
+.replies-container { padding: 16px; }
+.reply-card { background: #2a2a2a; border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+.card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.style-icon { font-size: 18px; }
+.style-name { font-size: 14px; font-weight: bold; color: #ff6b9d; }
+.card-content { font-size: 15px; line-height: 1.7; color: #fff; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px; margin-bottom: 12px; }
+.card-actions { display: flex; gap: 10px; }
+.btn-copy-large { flex: 1; padding: 14px; background: #ff6b9d; border: none; border-radius: 10px; color: #fff; font-size: 15px; font-weight: bold; cursor: pointer; }
+.btn-fav-small { width: 50px; padding: 14px; background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 10px; color: #ffd700; font-size: 18px; cursor: pointer; }
+.regen-btn { background: none; border: none; color: #888; font-size: 13px; cursor: pointer; }
+
+/* Form Page */
+.form-content { padding: 20px; }
+.form-item { margin-bottom: 20px; }
+.form-item label { display: block; font-size: 14px; color: #888; margin-bottom: 8px; }
+.form-item input, .form-item textarea { width: 100%; padding: 14px; background: #2a2a2a; border: 1px solid #333; border-radius: 10px; color: #fff; font-size: 15px; outline: none; }
+.form-item input::placeholder, .form-item textarea::placeholder { color: #666; }
+.submit-btn { width: 100%; padding: 16px; background: #ff6b9d; border: none; border-radius: 12px; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
+
+/* Favorites */
+.favorites-content { padding: 16px; }
+.empty-state { text-align: center; padding: 60px 20px; }
+.empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state p { color: #666; font-size: 14px; }
+.empty-state .sub { color: #888; margin-top: 8px; }
+.fav-list { display: flex; flex-direction: column; gap: 12px; }
+.fav-card { background: #2a2a2a; border-radius: 12px; padding: 16px; }
+.fav-meta { display: flex; gap: 10px; margin-bottom: 8px; }
+.fav-type { font-size: 12px; color: #ff6b9d; font-weight: bold; }
+.fav-persona { font-size: 12px; color: #888; }
+.fav-text { font-size: 14px; line-height: 1.6; color: #fff; margin-bottom: 12px; }
+.fav-actions { display: flex; gap: 10px; }
+.btn-use { flex: 1; padding: 12px; background: #ff6b9d; border: none; border-radius: 8px; color: #fff; font-size: 14px; cursor: pointer; }
+.btn-delete { width: 44px; padding: 12px; background: rgba(255,0,0,0.1); border: none; border-radius: 8px; color: #ff6b9d; font-size: 16px; cursor: pointer; }
+</style>
