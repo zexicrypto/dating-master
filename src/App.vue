@@ -1,8 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
 
-const API_URL = 'http://localhost:8000'
+// 纯前端版本，无需后端API
 
 // 人设数据
 const defaultPersonas = [
@@ -148,6 +147,75 @@ const uploadImage = (e) => {
 
 const clearImage = () => { imagePreview.value = ''; imageBase64.value = '' }
 
+// Mock 回复数据
+const mockReplies = {
+  '黛玉妹妹': [
+    { style: '推拉试探', content: '哥哥这么晚还不睡，不会是在想哪个妹妹吧~（偷笑）' },
+    { style: '人设展现', content: '终究是哥哥事业繁忙，小半天才想起回我一句罢了。' },
+    { style: '情绪价值', content: '开了一天会肯定累坏了吧，快去洗个热水澡放松一下呀~' }
+  ],
+  '高段位海王': [
+    { style: '推拉试探', content: '嗯？这么主动，我可得考虑考虑~ 毕竟我的时间很宝贵呢' },
+    { style: '人设展现', content: '你很有趣，但我现在不太确定要不要继续聊下去，给我个理由？' },
+    { style: '情绪价值', content: '和你聊天挺开心的，不过我现在要去健身了，晚点再聊~' }
+  ],
+  '甜妹': [
+    { style: '推拉试探', content: '哼，人家等了好久呢！不过看在哥哥这么忙的份上，原谅你啦~' },
+    { style: '人设展现', content: '哥哥哥哥！你终于回我啦！人家刚刚还在想你是不是把我忘了呢（委屈巴巴）' },
+    { style: '情绪价值', content: '哥哥辛苦啦！摸摸头~ 要不要听人家给你讲个开心的事情呀？' }
+  ],
+  '狐媚子': [
+    { style: '推拉试探', content: '这么着急呀~ 人家可是很难追的呢，你要加油哦😏' },
+    { style: '人设展现', content: '你这是在撩我吗？那可得拿出点真本事来，光靠嘴可不行~' },
+    { style: '情绪价值', content: '嘴巴这么甜，是不是对每个女生都这样说呀？不过...我喜欢~' }
+  ],
+  '霸道女总裁': [
+    { style: '推拉试探', content: '你的消息我看到了，但我现在很忙。有事直说，不要浪费彼此时间。' },
+    { style: '人设展现', content: '我欣赏直接的人。如果你对我有兴趣，就用行动证明，而不是空话。' },
+    { style: '情绪价值', content: '工作再忙也要注意休息。我不希望我的...朋友累坏了。' }
+  ],
+  '茶艺大师': [
+    { style: '推拉试探', content: '没关系的，哥哥不用管我...我一个人也可以的（虽然有点难过）' },
+    { style: '人设展现', content: '都是我不好，太粘人了...哥哥一定觉得我很烦吧？对不起...' },
+    { style: '情绪价值', content: '哥哥对我真好~ 要是能一直这样就好了（星星眼）' }
+  ],
+  '温柔姐姐': [
+    { style: '推拉试探', content: '你最近好像很忙呢，不过没关系，我会一直在这里等你的' },
+    { style: '人设展现', content: '不管发生什么，你都可以跟我说，我会一直陪着你的' },
+    { style: '情绪价值', content: '累了就休息一下吧，不要太勉强自己，我会心疼的' }
+  ],
+  '搞笑女': [
+    { style: '推拉试探', content: '你这样会让我心动的，负责吗？不负责的话我要收费了哦！' },
+    { style: '人设展现', content: '哈哈哈哈你这个回复太有意思了，我要截图发朋友圈！' },
+    { style: '情绪价值', content: '别emo了，来跟我一起哈哈哈，笑一笑十年少！' }
+  ],
+  '纯欲少女': [
+    { style: '推拉试探', content: '你...你这样看着我干什么（脸红）我、我才没有害羞呢！' },
+    { style: '人设展现', content: '人家只是随便问问啦，你不要太当真哦（其实心里很想知道）' },
+    { style: '情绪价值', content: '你对我这么好，我会...会依赖上你的（小声）' }
+  ],
+  '冷艳女王': [
+    { style: '推拉试探', content: '你凭什么觉得我会回复你？不过...既然你发了，我就勉为其难看看吧' },
+    { style: '人设展现', content: '我对不感兴趣的人从来不会多说一句，你应该感到荣幸' },
+    { style: '情绪价值', content: '你...还不错。这是我能给出的最高评价了' }
+  ]
+}
+
+// 生成随机回复（纯前端版本）
+const generateMockReplies = () => {
+  const persona = selectedPersona.value
+  const baseReplies = mockReplies[persona] || mockReplies['黛玉妹妹']
+  
+  // 随机打乱顺序，让每次生成看起来不同
+  const shuffled = [...baseReplies].sort(() => 0.5 - Math.random())
+  
+  // 添加一些随机变化
+  return shuffled.map(reply => ({
+    style: reply.style,
+    content: reply.content + (Math.random() > 0.5 ? ' ~' : ' ❤️')
+  }))
+}
+
 // 生成回复
 const doGenerate = async () => {
   if (!inputText.value.trim() && !imageBase64.value) {
@@ -159,24 +227,12 @@ const doGenerate = async () => {
   lastInput.value = { text: inputText.value, image: imageBase64.value }
   
   currentView.value = 'loading'
-  try {
-    let res
-    const scene = selectedScene.value || undefined
-    if (imageBase64.value && !inputText.value.trim()) {
-      res = await axios.post(`${API_URL}/api/generate/image`, {
-        persona: selectedPersona.value, scene, context: '', image_base64: imageBase64.value
-      })
-    } else {
-      res = await axios.post(`${API_URL}/api/generate/text`, {
-        persona: selectedPersona.value, scene, context: '', target_message: inputText.value
-      })
-    }
-    generatedReplies.value = res.data.replies
-    currentView.value = 'result'
-  } catch (err) {
-    showToastMsg('生成失败')
-    currentView.value = 'input'
-  }
+  
+  // 模拟延迟，让用户体验更真实
+  await new Promise(resolve => setTimeout(resolve, 1500))
+  
+  generatedReplies.value = generateMockReplies()
+  currentView.value = 'result'
 }
 
 // 重新生成（换一换）
@@ -186,39 +242,23 @@ const regenerate = async () => {
     return
   }
   currentView.value = 'loading'
-  try {
-    let res
-    const scene = selectedScene.value || undefined
-    if (lastInput.value.image) {
-      res = await axios.post(`${API_URL}/api/generate/image`, {
-        persona: selectedPersona.value, scene, context: '', image_base64: lastInput.value.image
-      })
-    } else {
-      res = await axios.post(`${API_URL}/api/generate/text`, {
-        persona: selectedPersona.value, scene, context: '', target_message: lastInput.value.text
-      })
-    }
-    generatedReplies.value = res.data.replies
-    currentView.value = 'result'
-  } catch (err) {
-    showToastMsg('生成失败')
-    currentView.value = 'result'
-  }
+  
+  // 模拟延迟
+  await new Promise(resolve => setTimeout(resolve, 1500))
+  
+  generatedReplies.value = generateMockReplies()
+  currentView.value = 'result'
 }
 
 // 主动撩人
 const proactive = async (scene) => {
   currentView.value = 'loading'
-  try {
-    const res = await axios.post(`${API_URL}/api/generate/text`, {
-      persona: selectedPersona.value, scene, context: '', target_message: '主动撩人'
-    })
-    generatedReplies.value = res.data.replies
-    currentView.value = 'result'
-  } catch (err) {
-    showToastMsg('生成失败')
-    currentView.value = 'input'
-  }
+  
+  // 模拟延迟
+  await new Promise(resolve => setTimeout(resolve, 1500))
+  
+  generatedReplies.value = generateMockReplies()
+  currentView.value = 'result'
 }
 
 // 返回
